@@ -60,6 +60,12 @@ jobs:
             -logFile /tmp/unity-build.log || true
           cat /tmp/unity-build.log
 
+      - name: Check build output
+        run: |
+          echo "=== build dir contents ==="
+          ls -la build/ || echo "build/ does not exist"
+          ls -la build/iOS/ || echo "build/iOS does not exist"
+
       - name: Archive Xcode project
         run: |
           cd build/iOS
