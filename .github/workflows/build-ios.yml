@@ -62,6 +62,13 @@ jobs:
           cat /tmp/unity-build.log
           exit $EXIT_CODE
 
+      - name: Upload Unity log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-build-log
+          path: /tmp/unity-build.log
+
       - name: Check build output
         run: |
           echo "=== build dir contents ==="
