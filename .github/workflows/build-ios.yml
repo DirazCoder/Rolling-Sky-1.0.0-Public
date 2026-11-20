@@ -57,8 +57,10 @@ jobs:
             -projectPath "${{ github.workspace }}" \
             -buildTarget iOS \
             -executeMethod BuildScript.BuildIOS \
-            -logFile /tmp/unity-build.log || true
+            -logFile /tmp/unity-build.log
+          EXIT_CODE=$?
           cat /tmp/unity-build.log
+          exit $EXIT_CODE
 
       - name: Check build output
         run: |
