@@ -1,0 +1,90 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+env:
+  UNITY_VERSION: 2017.4.40f1
+  UNITY_CHANGESET: 6e14067f8a9a
+  UNITY_EDITOR: /Applications/Unity/Unity.app/Contents/MacOS/Unity
+
+jobs:
+  build:
+    name: Build for iOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity installation
+        id: cache-unity
+        uses: actions/cache@v4
+        with:
+          path: /Applications/Unity
+          key: unity-${{ env.UNITY_VERSION }}-${{ env.UNITY_CHANGESET }}
+
+      - name: Download and install Unity Editor
+        if: steps.cache-unity.outputs.cache-hit != 'true'
+        run: |
+          curl -Lo /tmp/Unity.pkg \
+            "https://download.unity3d.com/download_unity/${{ env.UNITY_CHANGESET }}/MacEditorInstaller/Unity.pkg"
+          sudo installer -pkg /tmp/Unity.pkg -target /
+
+      - name: Download and install iOS support module
+        if: steps.cache-unity.outputs.cache-hit != 'true'
+        run: |
+          curl -Lo /tmp/UnityiOS.pkg \
+            "https://download.unity3d.com/download_unity/${{ env.UNITY_CHANGESET }}/MacEditorTargetInstaller/UnitySetup-iOS-Support-for-Editor-${{ env.UNITY_VERSION }}.pkg"
+          sudo installer -pkg /tmp/UnityiOS.pkg -target /
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-iOS-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-iOS-
+
+      - name: Build Unity iOS project
+        run: |
+          ${{ env.UNITY_EDITOR }} \
+            -batchmode \
+            -nographics \
+            -quit \
+            -projectPath "${{ github.workspace }}" \
+            -buildTarget iOS \
+            -executeMethod BuildScript.BuildIOS \
+            -logFile /tmp/unity-build.log || true
+          cat /tmp/unity-build.log
+
+      - name: Archive Xcode project
+        run: |
+          cd build/iOS
+          xcodebuild \
+            -project Unity-iPhone.xcodeproj \
+            -scheme Unity-iPhone \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath $RUNNER_TEMP/RollingSky.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export unsigned IPA
+        run: |
+          mkdir -p $RUNNER_TEMP/ipa/Payload
+          cp -r "$RUNNER_TEMP/RollingSky.xcarchive/Products/Applications/RollingSky.app" \
+            "$RUNNER_TEMP/ipa/Payload/"
+          cd $RUNNER_TEMP/ipa
+          zip -r RollingSky.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: RollingSky-unsigned
+          path: $RUNNER_TEMP/ipa/RollingSky.ipa
+          retention-days: 7
