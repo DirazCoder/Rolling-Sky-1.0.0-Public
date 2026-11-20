@@ -40,6 +40,17 @@ jobs:
             "https://download.unity3d.com/download_unity/${{ env.UNITY_CHANGESET }}/MacEditorTargetInstaller/UnitySetup-iOS-Support-for-Editor-${{ env.UNITY_VERSION }}.pkg"
           sudo installer -pkg /tmp/UnityiOS.pkg -target /
 
+      - name: Activate Unity license
+        run: |
+          ${{ env.UNITY_EDITOR }} \
+            -batchmode \
+            -nographics \
+            -quit \
+            -username "${{ secrets.UNITY_EMAIL }}" \
+            -password "${{ secrets.UNITY_PASSWORD }}" \
+            -logFile /tmp/unity-activate.log || true
+          cat /tmp/unity-activate.log
+
       - name: Cache Unity Library
         uses: actions/cache@v4
         with:
@@ -61,6 +72,17 @@ jobs:
           EXIT_CODE=$?
           cat /tmp/unity-build.log
           exit $EXIT_CODE
+
+      - name: Return Unity license
+        if: always()
+        run: |
+          ${{ env.UNITY_EDITOR }} \
+            -batchmode \
+            -nographics \
+            -quit \
+            -returnlicense \
+            -logFile /tmp/unity-return.log || true
+          cat /tmp/unity-return.log
 
       - name: Upload Unity log
         if: always()
